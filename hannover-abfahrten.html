@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="theme-color" content="#0a0a0f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Hannover Abfahrten</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Bebas+Neue&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #07080f;
+    --surface: #0d0f1a;
+    --surface2: #131525;
+    --border: #1e2138;
+    --accent: #00d4ff;
+    --accent2: #ff6b35;
+    --text: #e8eaf6;
+    --muted: #5c6085;
+    --green: #00ff9d;
+    --yellow: #ffd600;
+    --red: #ff4757;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Animated grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .app {
+    position: relative;
+    z-index: 1;
+    max-width: 480px;
+    margin: 0 auto;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Header */
+  header {
+    padding: 20px 20px 0;
+    position: sticky;
+    top: 0;
+    background: linear-gradient(to bottom, var(--bg) 80%, transparent);
+    z-index: 100;
+    padding-bottom: 16px;
+  }
+
+  .header-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+
+  .logo {
+    font-family: 'Bebas Neue', cursive;
+    font-size: 28px;
+    letter-spacing: 3px;
+    color: var(--accent);
+    text-shadow: 0 0 20px rgba(0,212,255,0.4);
+  }
+
+  .logo span {
+    color: var(--accent2);
+  }
+
+  .time-display {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 14px;
+    color: var(--muted);
+    text-align: right;
+  }
+
+  #clock {
+    font-size: 20px;
+    color: var(--text);
+    display: block;
+  }
+
+  /* Status bar */
+  .status-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--muted);
+    flex-shrink: 0;
+  }
+
+  .status-dot.active { background: var(--green); box-shadow: 0 0 8px var(--green); animation: pulse 2s infinite; }
+  .status-dot.loading { background: var(--yellow); animation: pulse 0.5s infinite; }
+  .status-dot.error { background: var(--red); }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  #status-text { flex: 1; }
+
+  .refresh-btn {
+    background: none;
+    border: none;
+    color: var(--accent);
+    cursor: pointer;
+    font-size: 16px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: all 0.2s;
+  }
+  .refresh-btn:hover { background: rgba(0,212,255,0.1); }
+  .refresh-btn.spinning { animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Stops container */
+  main { padding: 12px 20px 80px; flex: 1; }
+
+  /* Stop section */
+  .stop-section {
+    margin-bottom: 20px;
+    animation: fadeIn 0.4s ease forwards;
+    opacity: 0;
+  }
+
+  @keyframes fadeIn {
+    to { opacity: 1; transform: translateY(0); }
+    from { opacity: 0; transform: translateY(12px); }
+  }
+
+  .stop-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+    padding: 0 4px;
+  }
+
+  .stop-icon {
+    width: 32px;
+    height: 32px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+
+  .stop-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text);
+    flex: 1;
+  }
+
+  .stop-dist {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    background: var(--surface2);
+    padding: 2px 8px;
+    border-radius: 20px;
+  }
+
+  /* Departure card */
+  .dep-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 14px;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: border-color 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .dep-card::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+  }
+
+  .dep-card:hover { border-color: var(--accent); }
+
+  /* Line badge */
+  .line-badge {
+    font-family: 'Bebas Neue', cursive;
+    font-size: 16px;
+    letter-spacing: 1px;
+    min-width: 40px;
+    text-align: center;
+    padding: 4px 8px;
+    border-radius: 6px;
+    flex-shrink: 0;
+  }
+
+  /* Direction */
+  .dep-direction {
+    flex: 1;
+    font-size: 13px;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .dep-platform {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  /* Time display */
+  .dep-time-block {
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  .dep-minutes {
+    font-family: 'Bebas Neue', cursive;
+    font-size: 26px;
+    line-height: 1;
+    color: var(--green);
+  }
+
+  .dep-minutes.soon { color: var(--yellow); }
+  .dep-minutes.now { color: var(--red); animation: pulse 0.8s infinite; }
+
+  .dep-minutes-label {
+    font-size: 10px;
+    color: var(--muted);
+    font-family: 'Share Tech Mono', monospace;
+  }
+
+  .dep-clock {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .delay-badge {
+    font-size: 10px;
+    color: var(--red);
+    font-family: 'Share Tech Mono', monospace;
+  }
+
+  /* Line colors */
+  .line-stadtbahn { background: rgba(0,212,255,0.15); color: var(--accent); }
+  .dep-card.line-stadtbahn::before { background: var(--accent); }
+
+  .line-bus { background: rgba(255,107,53,0.15); color: var(--accent2); }
+  .dep-card.line-bus::before { background: var(--accent2); }
+
+  .line-sbahn { background: rgba(0,255,157,0.15); color: var(--green); }
+  .dep-card.line-sbahn::before { background: var(--green); }
+
+  .line-regional { background: rgba(255,214,0,0.15); color: var(--yellow); }
+  .dep-card.line-regional::before { background: var(--yellow); }
+
+  /* Empty/Loading states */
+  .skeleton {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    margin-bottom: 6px;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .skel-box {
+    background: linear-gradient(90deg, var(--surface2) 25%, var(--border) 50%, var(--surface2) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+    border-radius: 6px;
+  }
+
+  @keyframes shimmer { to { background-position: -200% 0; } }
+
+  /* Manual search */
+  .search-bar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  .search-input {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .search-input:focus { border-color: var(--accent); }
+  .search-input::placeholder { color: var(--muted); }
+
+  .search-btn {
+    background: var(--accent);
+    border: none;
+    border-radius: 8px;
+    padding: 10px 16px;
+    color: #000;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+
+  .search-btn:hover { background: #33dcff; }
+
+  /* Suggestions dropdown */
+  .suggestions {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 52px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    z-index: 200;
+    max-height: 200px;
+    overflow-y: auto;
+    margin-top: 4px;
+  }
+
+  .suggestion-item {
+    padding: 10px 14px;
+    font-size: 13px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.15s;
+  }
+
+  .suggestion-item:last-child { border-bottom: none; }
+  .suggestion-item:hover { background: var(--border); color: var(--accent); }
+
+  .search-wrapper { position: relative; flex: 1; }
+
+  /* Bottom nav hint */
+  .bottom-hint {
+    position: fixed;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    max-width: 480px;
+    background: linear-gradient(to top, var(--bg), transparent);
+    padding: 20px 20px 16px;
+    text-align: center;
+    font-size: 11px;
+    color: var(--muted);
+    pointer-events: none;
+  }
+
+  /* Error state */
+  .error-box {
+    background: rgba(255,71,87,0.1);
+    border: 1px solid rgba(255,71,87,0.3);
+    border-radius: 10px;
+    padding: 16px;
+    text-align: center;
+    color: var(--red);
+    font-size: 13px;
+  }
+
+  .error-box button {
+    margin-top: 10px;
+    background: var(--red);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 16px;
+    cursor: pointer;
+    font-size: 12px;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .section-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    margin-top: 4px;
+  }
+
+  .no-deps {
+    font-size: 12px;
+    color: var(--muted);
+    text-align: center;
+    padding: 12px;
+    font-family: 'Share Tech Mono', monospace;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="header-top">
+      <div class="logo">ABFAHRT<span>LIVE</span></div>
+      <div class="time-display">
+        <span id="clock">--:--:--</span>
+        Hannover
+      </div>
+    </div>
+
+    <!-- Manual search -->
+    <div class="search-bar">
+      <div class="search-wrapper">
+        <input type="text" class="search-input" id="search-input" placeholder="Haltestelle suchen..." autocomplete="off">
+        <div class="suggestions" id="suggestions" style="display:none;"></div>
+      </div>
+      <button class="search-btn" id="loc-btn" onclick="getLocation()">📍 GPS</button>
+    </div>
+
+    <div class="status-bar">
+      <div class="status-dot" id="status-dot"></div>
+      <span id="status-text">Standort wird ermittelt...</span>
+      <button class="refresh-btn" id="refresh-btn" onclick="refresh()" title="Aktualisieren">↻</button>
+    </div>
+  </header>
+
+  <main id="main-content">
+    <!-- Skeleton loading -->
+    <div id="skeleton">
+      <div class="section-label">WIRD GELADEN</div>
+      <div class="skeleton"><div class="skel-box" style="width:40px;height:36px"></div><div style="flex:1"><div class="skel-box" style="width:70%;height:14px;margin-bottom:6px"></div><div class="skel-box" style="width:40%;height:11px"></div></div><div class="skel-box" style="width:40px;height:30px"></div></div>
+      <div class="skeleton"><div class="skel-box" style="width:40px;height:36px"></div><div style="flex:1"><div class="skel-box" style="width:60%;height:14px;margin-bottom:6px"></div><div class="skel-box" style="width:35%;height:11px"></div></div><div class="skel-box" style="width:40px;height:30px"></div></div>
+      <div class="skeleton"><div class="skel-box" style="width:40px;height:36px"></div><div style="flex:1"><div class="skel-box" style="width:80%;height:14px;margin-bottom:6px"></div><div class="skel-box" style="width:50%;height:11px"></div></div><div class="skel-box" style="width:40px;height:30px"></div></div>
+    </div>
+    <div id="content"></div>
+  </main>
+
+  <div class="bottom-hint">Daten via DB HAFAS API • Aktualisierung alle 30 Sek.</div>
+</div>
+
+<script>
+const API = 'https://v6.db.transport.rest';
+let refreshTimer = null;
+let currentLat = null;
+let currentLon = null;
+let searchTimeout = null;
+
+// Clock
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    now.toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// Status
+function setStatus(state, text) {
+  const dot = document.getElementById('status-dot');
+  dot.className = 'status-dot ' + state;
+  document.getElementById('status-text').textContent = text;
+}
+
+// Get location
+function getLocation() {
+  if (!navigator.geolocation) {
+    setStatus('error', 'GPS nicht verfügbar – Haltestelle suchen');
+    return;
+  }
+  setStatus('loading', 'GPS wird ermittelt...');
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      currentLat = pos.coords.latitude;
+      currentLon = pos.coords.longitude;
+      loadNearby(currentLat, currentLon);
+    },
+    err => {
+      setStatus('error', 'GPS fehlgeschlagen – Haltestelle manuell suchen');
+      document.getElementById('skeleton').style.display = 'none';
+    },
+    { enableHighAccuracy: true, timeout: 10000 }
+  );
+}
+
+// Load nearby stops
+async function loadNearby(lat, lon) {
+  setStatus('loading', 'Haltestellen werden gesucht...');
+  showRefreshSpin(true);
+  try {
+    const res = await fetch(`${API}/locations/nearby?latitude=${lat}&longitude=${lon}&results=3&distance=600`);
+    const stops = await res.json();
+    if (!stops || stops.length === 0) {
+      showError('Keine Haltestellen in der Nähe gefunden (600m Radius).');
+      return;
+    }
+    await loadDeparturesForStops(stops);
+  } catch(e) {
+    showError('API nicht erreichbar. Bitte Internetverbindung prüfen.');
+    console.error(e);
+  }
+  showRefreshSpin(false);
+}
+
+// Load departures for multiple stops
+async function loadDeparturesForStops(stops) {
+  setStatus('loading', 'Abfahrten werden geladen...');
+  document.getElementById('skeleton').style.display = 'none';
+  document.getElementById('content').innerHTML = '';
+
+  const promises = stops.map(stop =>
+    fetch(`${API}/stops/${stop.id}/departures?results=6&duration=60`)
+      .then(r => r.json())
+      .then(data => ({ stop, departures: data.departures || data || [] }))
+      .catch(() => ({ stop, departures: [] }))
+  );
+
+  const results = await Promise.all(promises);
+  renderDepartures(results);
+  setStatus('active', `Aktualisiert ${new Date().toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'})} Uhr`);
+
+  // Auto-refresh
+  clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(() => {
+    if (currentLat) loadNearby(currentLat, currentLon);
+  }, 30000);
+}
+
+// Render
+function renderDepartures(results) {
+  const content = document.getElementById('content');
+  content.innerHTML = '';
+
+  if (results.length === 0) {
+    showError('Keine Haltestellen gefunden.');
+    return;
+  }
+
+  results.forEach((result, idx) => {
+    const { stop, departures } = result;
+    const section = document.createElement('div');
+    section.className = 'stop-section';
+    section.style.animationDelay = (idx * 0.1) + 's';
+
+    const dist = stop.distance ? `${Math.round(stop.distance)} m` : '';
+    const icon = getStopIcon(stop);
+
+    section.innerHTML = `
+      <div class="stop-header">
+        <div class="stop-icon">${icon}</div>
+        <div class="stop-name">${stop.name}</div>
+        ${dist ? `<div class="stop-dist">${dist}</div>` : ''}
+      </div>
+    `;
+
+    if (!departures || departures.length === 0) {
+      section.innerHTML += `<div class="no-deps">Keine Abfahrten in den nächsten 60 Min.</div>`;
+    } else {
+      departures.slice(0, 6).forEach(dep => {
+        section.innerHTML += renderDepCard(dep);
+      });
+    }
+
+    content.appendChild(section);
+  });
+}
+
+function getStopIcon(stop) {
+  const p = stop.products || {};
+  if (p.subway || p.tram) return '🚊';
+  if (p.suburban) return '🚆';
+  if (p.bus) return '🚌';
+  if (p.regional || p.regionalExp || p.national) return '🚂';
+  return '🚉';
+}
+
+function renderDepCard(dep) {
+  const now = new Date();
+  const when = dep.when ? new Date(dep.when) : (dep.plannedWhen ? new Date(dep.plannedWhen) : null);
+  if (!when) return '';
+
+  const diffMs = when - now;
+  const diffMin = Math.round(diffMs / 60000);
+
+  const line = dep.line || {};
+  const lineType = getLineType(line);
+  const lineName = line.name || '?';
+  const direction = dep.direction || '–';
+  const delay = dep.delay ? Math.round(dep.delay / 60) : 0;
+
+  let minDisplay = diffMin <= 0 ? 'JETZT' : String(diffMin);
+  let minClass = diffMin > 5 ? '' : diffMin > 2 ? 'soon' : 'now';
+  let minLabel = diffMin <= 0 ? '' : 'MIN';
+
+  const clockStr = when.toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'});
+  const delayStr = delay > 0 ? `<span class="delay-badge">+${delay} Min</span>` : '';
+  const platform = dep.plannedPlatform ? `Gl. ${dep.plannedPlatform}` : '';
+
+  return `
+    <div class="dep-card ${lineType}">
+      <div class="line-badge ${lineType.replace('dep-card ','')}">${lineName}</div>
+      <div style="flex:1;min-width:0">
+        <div class="dep-direction">${direction}</div>
+        ${platform ? `<div class="dep-platform">${platform}</div>` : ''}
+      </div>
+      <div class="dep-time-block">
+        <div class="dep-minutes ${minClass}">${minDisplay}</div>
+        <div class="dep-minutes-label">${minLabel}</div>
+        <div class="dep-clock">${clockStr} ${delayStr}</div>
+      </div>
+    </div>`;
+}
+
+function getLineType(line) {
+  const prod = line.product || '';
+  if (prod === 'tram' || prod === 'subway') return 'line-stadtbahn';
+  if (prod === 'suburban') return 'line-sbahn';
+  if (prod === 'bus' || prod === 'expressBus') return 'line-bus';
+  if (prod === 'regional' || prod === 'regionalExp' || prod === 'national' || prod === 'nationalExpress') return 'line-regional';
+  return 'line-bus';
+}
+
+// Search
+const searchInput = document.getElementById('search-input');
+const suggestionsEl = document.getElementById('suggestions');
+
+searchInput.addEventListener('input', () => {
+  clearTimeout(searchTimeout);
+  const q = searchInput.value.trim();
+  if (q.length < 2) { suggestionsEl.style.display = 'none'; return; }
+  searchTimeout = setTimeout(() => searchStops(q), 400);
+});
+
+searchInput.addEventListener('keydown', e => {
+  if (e.key === 'Escape') suggestionsEl.style.display = 'none';
+});
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.search-wrapper')) suggestionsEl.style.display = 'none';
+});
+
+async function searchStops(q) {
+  try {
+    const res = await fetch(`${API}/locations?query=${encodeURIComponent(q + ' Hannover')}&results=5&stops=true&addresses=false&poi=false`);
+    const locs = await res.json();
+    const stops = locs.filter(l => l.type === 'stop');
+    if (stops.length === 0) { suggestionsEl.style.display = 'none'; return; }
+
+    suggestionsEl.innerHTML = stops.map(s =>
+      `<div class="suggestion-item" data-id="${s.id}" data-name="${s.name}">${s.name}</div>`
+    ).join('');
+    suggestionsEl.style.display = 'block';
+
+    suggestionsEl.querySelectorAll('.suggestion-item').forEach(item => {
+      item.addEventListener('click', () => {
+        const stopId = item.dataset.id;
+        const stopName = item.dataset.name;
+        searchInput.value = stopName;
+        suggestionsEl.style.display = 'none';
+        currentLat = null; currentLon = null;
+        loadSingleStop(stopId, stopName);
+      });
+    });
+  } catch(e) { suggestionsEl.style.display = 'none'; }
+}
+
+async function loadSingleStop(id, name) {
+  setStatus('loading', `Lade ${name}...`);
+  showRefreshSpin(true);
+  document.getElementById('skeleton').style.display = 'none';
+  document.getElementById('content').innerHTML = '';
+  try {
+    const res = await fetch(`${API}/stops/${id}/departures?results=10&duration=90`);
+    const data = await res.json();
+    const departures = data.departures || data || [];
+    renderDepartures([{ stop: { id, name, products: {} }, departures }]);
+    setStatus('active', `${name} • ${new Date().toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'})} Uhr`);
+
+    clearTimeout(refreshTimer);
+    refreshTimer = setTimeout(() => loadSingleStop(id, name), 30000);
+  } catch(e) {
+    showError('Haltestelle konnte nicht geladen werden.');
+  }
+  showRefreshSpin(false);
+}
+
+function showError(msg) {
+  document.getElementById('skeleton').style.display = 'none';
+  document.getElementById('content').innerHTML = `
+    <div class="error-box">
+      ⚠️ ${msg}
+      <br><button onclick="getLocation()">GPS erneut versuchen</button>
+    </div>`;
+  setStatus('error', 'Fehler aufgetreten');
+}
+
+function showRefreshSpin(active) {
+  document.getElementById('refresh-btn').classList.toggle('spinning', active);
+}
+
+function refresh() {
+  if (currentLat) loadNearby(currentLat, currentLon);
+}
+
+// Start
+getLocation();
+</script>
+</body>
+</html>
